@@ -29,6 +29,7 @@ class SaveRelationsBehavior extends Behavior
     public function events()
     {
         return [
+            ActiveRecord::EVENT_AFTER_DELETE => 'afterDelete',
             ActiveRecord::EVENT_BEFORE_VALIDATE => 'beforeValidate',
             ActiveRecord::EVENT_AFTER_INSERT    => 'afterSave',
             ActiveRecord::EVENT_AFTER_UPDATE    => 'afterSave',
@@ -385,6 +386,22 @@ class SaveRelationsBehavior extends Behavior
                 $model->{$relationName} = $data[$formName];
             }
         }
+    }
+    
+    public function afterDelete($event)
+    {
+        $model = $this->owner;
+        /**@var $model ActiveRecord**/
+        foreach ($this->relations as $relationName) {
+            $relation = $model->getRelation($relationName);
+            $modelClass = $relation->modelClass;
+            $query = [];
+            foreach ($relation->link as $relatedAttribute => $modelAttribute) {
+                $query[$relatedAttribute] = $model->$modelAttribute;
+            }
+            $modelClass::deleteAll($query);
+        }
+
     }
 
 
