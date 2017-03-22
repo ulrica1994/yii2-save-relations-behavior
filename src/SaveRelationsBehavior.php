@@ -208,8 +208,10 @@ class SaveRelationsBehavior extends Behavior
                     if (!empty($model->{$relationName})) {
                         if ($relation->multiple === false) {
                             // Save Has one relation new record
-                            $pettyRelationName = Inflector::camel2words($relationName, true);
-                            $this->_saveModelRecord($model->{$relationName}, $event, $pettyRelationName, $relationName);
+                            if (!is_null($relation->inverseOf)) {
+                                $pettyRelationName = Inflector::camel2words($relationName, true);
+                                $this->_saveModelRecord($model->{$relationName}, $event, $pettyRelationName, $relationName);
+                            }
                         } else {
                             // Save Has many relations new records
                             /** @var ActiveRecord $relationModel */
