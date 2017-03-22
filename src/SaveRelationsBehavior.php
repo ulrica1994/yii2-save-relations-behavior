@@ -388,11 +388,19 @@ class SaveRelationsBehavior extends Behavior
         }
     }
     
+    private function isBelongTo($relationName)
+    {
+        $model = $this->owner;
+        $relation = $model->getRelation($relationName);
+        return !is_null($relation->inverseOf);
+    }
+
     public function afterDelete($event)
     {
         $model = $this->owner;
         /**@var $model ActiveRecord**/
         foreach ($this->relations as $relationName) {
+            if ($this->isBelongTo($relationName)) continue;
             $relation = $model->getRelation($relationName);
             $modelClass = $relation->modelClass;
             $query = [];
