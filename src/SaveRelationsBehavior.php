@@ -178,7 +178,12 @@ class SaveRelationsBehavior extends Behavior
                             Yii::trace("Setting foreign keys for {$relationName}", __METHOD__);
                             foreach ($relation->link as $relatedAttribute => $modelAttribute) {
                                 if ($model->{$modelAttribute} !== $model->{$relationName}->{$relatedAttribute}) {
-                                    $model->{$modelAttribute} = $model->{$relationName}->{$relatedAttribute};
+                                    if ($this->isBelongTo($relationName)) {
+                                        $model->{$modelAttribute} = $model->{$relationName}->{$relatedAttribute};
+                                    } else {
+                                        $model->{$relationName}->{$relatedAttribute} = $model->{$modelAttribute};
+                                    }
+
                                 }
                             }
                         }
@@ -208,10 +213,13 @@ class SaveRelationsBehavior extends Behavior
                     $relation = $model->getRelation($relationName);
                     if (!empty($model->{$relationName})) {
                         if ($relation->multiple === false) {
+                            $pettyRelationName = Inflector::camel2words($relationName, true);
                             // Save Has one relation new record
                             if (!is_null($relation->inverseOf)) {
-                                $pettyRelationName = Inflector::camel2words($relationName, true);
+
                                 $this->_saveModelRecord($model->{$relationName}, $event, $pettyRelationName, $relationName);
+                            } else {
+                                $this->_validateRelationModel($pettyRelationName,$relationName,$model->{$relationName},$event);
                             }
                         } else {
                             // Save Has many relations new records
@@ -328,7 +336,12 @@ class SaveRelationsBehavior extends Behavior
                     } else { // Has one relation
                         if ($this->_oldRelationValue[$relationName] !== $model->{$relationName}) {
                             if ($model->{$relationName} instanceof ActiveRecord) {
-                                $model->link($relationName, $model->{$relationName});
+                                if ($this->isBelongTo($relationName)) {
+                                    $model->link($relationName, $model->{$relationName});
+                                } else {
+                                    $model->{$relationName}->save(false);
+                                }
+
                             } else {
                                 if ($this->_oldRelationValue[$relationName] instanceof ActiveRecord) {
                                     $model->unlink($relationName, $this->_oldRelationValue[$relationName]);
@@ -397,18 +410,19 @@ class SaveRelationsBehavior extends Behavior
 
     public function afterDelete($event)
     {
-        $model = $this->owner;
-        /**@var $model ActiveRecord**/
-        foreach ($this->relations as $relationName) {
-            if ($this->isBelongTo($relationName)) continue;
-            $relation = $model->getRelation($relationName);
-            $modelClass = $relation->modelClass;
-            $query = [];
-            foreach ($relation->link as $relatedAttribute => $modelAttribute) {
-                $query[$relatedAttribute] = $model->$modelAttribute;
-            }
-            $modelClass::deleteAll($query);
-        }
+//        $model = $this->owner;
+//        /**@var $model ActiveRecord**/
+//        foreach ($this->relations as $relationName) {
+//            if ($this->isBelongTo($relationName)) continue;
+//            $relationModels = $model->{$relationName};
+//            if (!is_array($relationModels)) {
+//                $relationModels = [$relationModels];
+//            }
+//            foreach ($relationModels as $relationModel) {
+//                $model->unlink($relationName,$relationModel,true);
+//            }
+//
+//        }
 
     }
 
