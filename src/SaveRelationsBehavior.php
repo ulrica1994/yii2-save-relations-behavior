@@ -137,8 +137,8 @@ class SaveRelationsBehavior extends Behavior
             }
 
             foreach ($link as $relatedAttribute => $modelAttribute) {
-                if (array_key_exists($modelAttribute, $data) && !empty($data[$modelAttribute])) {
-                    $fks[$modelAttribute] = $data[$modelAttribute];
+                if (array_key_exists($relatedAttribute, $data) && !empty($data[$relatedAttribute])) {
+                    $fks[$relatedAttribute] = $data[$relatedAttribute];
                 }
             }
         } else {
