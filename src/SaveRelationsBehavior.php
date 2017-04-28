@@ -410,20 +410,109 @@ class SaveRelationsBehavior extends Behavior
 
     public function afterDelete($event)
     {
-//        $model = $this->owner;
-//        /**@var $model ActiveRecord**/
-//        foreach ($this->relations as $relationName) {
-//            if ($this->isBelongTo($relationName)) continue;
-//            $relationModels = $model->{$relationName};
-//            if (!is_array($relationModels)) {
-//                $relationModels = [$relationModels];
-//            }
-//            foreach ($relationModels as $relationModel) {
-//                $model->unlink($relationName,$relationModel,true);
-//            }
-//
-//        }
+            $this->deleteWithRelated();
 
+    }
+
+    public function deleteWithRelated()
+    {
+        /* @var $owner ActiveRecord */
+        $owner = $this->owner;
+        $db = $this->owner->getDb();
+        $trans = $db->beginTransaction();
+        try {
+            $error = false;
+            $relData = $this->getRelationData();
+            foreach ($relData as $data) {
+                if ($data['ismultiple'] || !$data['inverseOf']) {
+                    $link = $data['link'];
+                    $relModels = $owner->{$data['name']};
+                    if ($relModels) {
+                        if (!$data['ismultiple']) {
+                            $error = !$relModels->delete();
+                        } else {
+                            foreach ($relModels as $relModel) {
+                                if ($relModel)
+                                    $owner->unlink($data['name'],$relModel,true);
+                            }
+
+                        }
+
+                    }
+
+                }
+            }
+            if ($error) {
+                $trans->rollback();
+                return false;
+            }
+            if ($this->delete()) {
+                $trans->commit();
+                return true;
+            }
+            $trans->rollBack();
+        } catch (Exception $exc) {
+            $trans->rollBack();
+            throw $exc;
+        }
+    }
+
+
+    public function getRelationData()
+    {
+        $ARMethods = get_class_methods('\yii\db\ActiveRecord');
+        $modelMethods = get_class_methods('\yii\base\Model');
+        $reflection = new \ReflectionClass($this->owner);
+        $stack = [];
+        /* @var $method \ReflectionMethod */
+        foreach ($reflection->getMethods() as $method) {
+            if (in_array($method->name, $ARMethods) || in_array($method->name, $modelMethods)) {
+                continue;
+            }
+            if ($method->name === 'bindModels') {
+                continue;
+            }
+            if ($method->name === 'attachBehaviorInternal') {
+                continue;
+            }
+            if ($method->name === 'loadAll') {
+                continue;
+            }
+            if ($method->name === 'saveAll') {
+                continue;
+            }
+            if ($method->name === 'getRelationData') {
+                continue;
+            }
+            if ($method->name === 'getAttributesWithRelatedAsPost') {
+                continue;
+            }
+            if ($method->name === 'getAttributesWithRelated') {
+                continue;
+            }
+            if ($method->name === 'deleteWithRelated') {
+                continue;
+            }
+            if (strpos($method->name, 'get') === false) {
+                continue;
+            }
+            try {
+                $rel = call_user_func(array($this->owner, $method->name));
+                if ($rel instanceof \yii\db\ActiveQuery) {
+                    $name = lcfirst(str_replace('get', '', $method->name));
+                    $stack[$name]['name'] = lcfirst(str_replace('get', '', $method->name));
+                    $stack[$name]['method'] = $method->name;
+                    $stack[$name]['ismultiple'] = $rel->multiple;
+                    $stack[$name]['modelClass'] = $rel->modelClass;
+                    $stack[$name]['link'] = $rel->link;
+                    $stack[$name]['via'] = $rel->via;
+                    $stack[$name]['inverseOf'] = $rel->inverseOf;
+                }
+            } catch (\yii\base\ErrorException $exc) {
+                //if method name can't be called,
+            }
+        }
+        return $stack;
     }
 
 
